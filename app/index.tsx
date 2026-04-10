@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 // Vamos usar um gradiente laranja no fundo para ficar bonito?
 // Se der erro, instale: npx expo install expo-linear-gradient
@@ -37,7 +37,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/create-session')}
           >
             <Text style={styles.createButtonText}>CRIAR SESSÃO</Text>
-            <Text style={styles.buttonSubtext}>Sou o Líder da Mesa</Text>
+            <Text style={styles.buttonSubtextBlack}>Sou o Líder da Mesa</Text>
           </TouchableOpacity>
 
           {/* Botão Entrar na Sessão */}
@@ -46,7 +46,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/join-session')}
           >
             <Text style={styles.joinButtonText}>ENTRAR EM SESSÃO</Text>
-            <Text style={styles.buttonSubtext}>Tenho um código</Text>
+            <Text style={styles.buttonSubtextWhite}>Tenho um código</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 24,
-    fontWeight: '300',
+    fontWeight: '600',
     color: '#FFE4B5', // Um bege claro
     letterSpacing: 5,
   },
@@ -135,7 +135,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  buttonSubtext: {
+  buttonSubtextBlack: {
+    fontSize: 12,
+    marginTop: 4,
+    opacity: 0.8,
+    color: '#FFF'
+  },
+  buttonSubtextWhite: {
     fontSize: 12,
     marginTop: 4,
     opacity: 0.8,

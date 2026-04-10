@@ -1,27 +1,26 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { db } from "../src/config/firebaseConfig";
+import { router, Stack } from "expo-router";
 import {
   collection,
-  query,
-  where,
-  getDocs,
-  updateDoc,
   doc,
-  arrayUnion,
-} from "firebase/firestore";
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore"; // Removi o arrayUnion daqui
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { db } from "../src/config/firebaseConfig";
 
 export default function JoinSessionScreen() {
   const [name, setName] = useState("");
@@ -62,8 +61,6 @@ export default function JoinSessionScreen() {
       }
 
       // FILTRO INTELIGENTE:
-      // Procura dentro dos resultados uma sala que esteja 'waiting' ou 'playing'
-      // Ignora as salas 'finished' (antigas)
       const activeSessionDoc = querySnapshot.docs.find((doc) => {
         const data = doc.data();
         return data.status === "waiting" || data.status === "playing";
@@ -80,11 +77,14 @@ export default function JoinSessionScreen() {
 
       const sessionData = activeSessionDoc.data();
       const sessionId = activeSessionDoc.id;
+      const cleanName = name.trim();
 
-      // Validação de nome único
-      const playerExists = sessionData.players.some(
-        (p: any) => p.name.toLowerCase() === name.trim().toLowerCase()
+      // Validação de nome único (Lendo as chaves do Objeto)
+      const existingNames = Object.keys(sessionData.players || {});
+      const playerExists = existingNames.some(
+        (pName) => pName.toLowerCase() === cleanName.toLowerCase()
       );
+
       if (playerExists) {
         Alert.alert(
           "Nome em uso",
@@ -94,34 +94,34 @@ export default function JoinSessionScreen() {
         return;
       }
 
-      // Adiciona o jogador
-      // Se o status for 'playing', entra como Ready=true para não travar o jogo
       const isAlreadyPlaying = sessionData.status === "playing";
 
-      await updateDoc(doc(db, "sessions", sessionId), {
-        players: arrayUnion({
-          name: name.trim(),
+      // Adiciona o jogador direto na chave com o nome dele
+      await updateDoc(doc(db, 'sessions', sessionId), {
+        [`players.${cleanName}`]: {
+          name: cleanName,
           score: 0,
-          isReady: isAlreadyPlaying ? true : false,
+          isReady: isAlreadyPlaying ? true : false, // Entra pronto se o jogo já começou
           isHost: false,
-          joinedAt: new Date().toISOString(),
-        }),
+          isFinished: false,
+          joinedAt: new Date().toISOString()
+        }
       });
 
-      await AsyncStorage.setItem("@player_name", name);
+      await AsyncStorage.setItem("@player_name", cleanName);
 
-      // Se o jogo já estiver rolando, vai direto pra arena
+      // Roteamento
       if (isAlreadyPlaying) {
         router.replace({
           pathname: "/game",
-          params: { sessionId, userName: name },
+          params: { sessionId, userName: cleanName },
         });
       } else {
         router.replace({
           pathname: "/lobby",
           params: {
             sessionId: sessionId,
-            userName: name,
+            userName: cleanName,
             isHost: "false",
           },
         });
@@ -138,6 +138,10 @@ export default function JoinSessionScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
+      {/* --- AQUI: Configuração do título da barra superior --- */}
+      <Stack.Screen options={{ title: 'Participar da Sessão' }} />
+      {/* ---------------------------------------------------- */}
+
       <View style={styles.content}>
         <Text style={styles.title}>Entrar na Arena 🥢</Text>
         <Text style={styles.subtitle}>

@@ -13,13 +13,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#FF4500",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.sushidevbr.sushishowdown"
     },
     "web": {
       "output": "static",
@@ -38,11 +39,23 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3628106619505041~9085544952",
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d11c3d26-e29a-40ae-a346-e675b602c587"
+      }
     }
   }
 }

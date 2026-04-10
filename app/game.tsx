@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { doc, Firestore, onSnapshot, updateDoc } from "firebase/firestore";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Alert,
-  FlatList,
   Dimensions,
+  FlatList,
+  KeyboardAvoidingView,
   Platform,
   StatusBar,
-  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
-import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { db } from "../src/config/firebaseConfig";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 
 const STORAGE_KEY = "@sushi_session_state";
 const { width, height } = Dimensions.get("window");
@@ -71,32 +71,41 @@ export default function GameScreen() {
   // 2. Escuta o Firebase (Onde a mágica do Fim de Jogo acontece)
   useEffect(() => {
     if (!sessionId) return;
-    const sessionDocRef = doc(db, "sessions", sessionId as string);
+    const sessionDocRef = doc(db, 'sessions', sessionId as string);
 
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const sortedPlayers = data.players.sort(
-          (a: any, b: any) => b.score - a.score
-        );
+        // Pega todos os valores do objeto 'players' e joga num array
+        const playersArray = Object.values(data.players || {});
+        const sortedPlayers = playersArray.sort((a: any, b: any) => b.score - a.score);
 
         setPlayers(sortedPlayers);
         playersRef.current = sortedPlayers;
 
-        // VERIFICAÇÃO DE FIM DE JOGO
-        // Se a lista não estiver vazia E todos estiverem finalizados
-        const allFinished =
-          sortedPlayers.length > 0 &&
-          sortedPlayers.every((p: any) => p.isFinished);
+        // Verifica quantos jogadores existem
+        const totalPlayers = sortedPlayers.length;
 
-        if (allFinished) {
+        // Conta quantos já terminaram (tratando undefined como false)
+        const finishedCount = sortedPlayers.filter((p: any) => p.isFinished === true).length;
+
+
+        // Só acaba se tiver gente na sala E todo mundo estiver marcado como finished
+        if (totalPlayers > 0 && finishedCount === totalPlayers) {
           setGameOver(true);
+
+          // Opcional: O último a terminar atualiza o status da sala pra 'finished' no banco
+          // Isso impede novos jogadores de entrar'
+          if (data.status !== 'finished') {
+            updateDoc(sessionDocRef, { status: 'finished' });
+          }
         } else {
           setGameOver(false);
         }
+
       } else {
-        Alert.alert("Fim da linha", "A sessão foi encerrada.");
-        router.replace("/");
+        Alert.alert('Fim da linha', 'A sessão foi encerrada.');
+        router.replace('/');
       }
     });
 
@@ -108,24 +117,16 @@ export default function GameScreen() {
     finished: boolean
   ) => {
     if (!sessionId) return;
+    const sessionRef = doc(db, "sessions", sessionId as string);
 
-    const currentPlayers = [...playersRef.current];
-    const myIndex = currentPlayers.findIndex((p: any) => p.name === userName);
-
-    if (myIndex >= 0) {
-      currentPlayers[myIndex] = {
-        ...currentPlayers[myIndex],
-        score: newCount,
-        isFinished: finished,
-      };
-
-      try {
-        await updateDoc(doc(db, "sessions", sessionId as string), {
-          players: currentPlayers,
-        });
-      } catch (e) {
-        console.log("Erro ao sincronizar", e);
-      }
+    try {
+      // Magia pura: Atualiza SÓ os campos do seu jogador, ignorando os outros!
+      await updateDoc(sessionRef, {
+        [`players.${userName}.score`]: newCount,
+        [`players.${userName}.isFinished`]: finished,
+      });
+    } catch (e) {
+      console.log("Erro ao sincronizar pontuação", e);
     }
   };
 
@@ -133,7 +134,7 @@ export default function GameScreen() {
     if (isFinished) return;
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
+    } catch (e) { }
 
     const newCount = myCount + 1;
     setMyCount(newCount);
@@ -145,7 +146,7 @@ export default function GameScreen() {
     if (isFinished || myCount === 0) return;
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (e) {}
+    } catch (e) { }
 
     const newCount = myCount - 1;
     setMyCount(newCount);
@@ -169,7 +170,7 @@ export default function GameScreen() {
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success
               );
-            } catch (e) {}
+            } catch (e) { }
           },
         },
       ]
@@ -186,155 +187,177 @@ export default function GameScreen() {
     const isWinnerMe = winner.name === userName;
 
     return (
-      <View style={styles.gameOverContainer}>
-        <StatusBar barStyle="light-content" />
-        <View style={styles.gameOverHeader}>
-          <Text style={styles.gameOverTitle}>RESULTADO FINAL</Text>
-          <Text style={styles.gameOverSubtitle}>A batalha acabou! 🏁</Text>
-        </View>
 
-        <View style={styles.winnerCard}>
-          <Text style={styles.trophy}>🏆</Text>
-          <Text style={styles.winnerLabel}>O Grande Campeão</Text>
-          <Text style={styles.winnerName}>{winner.name}</Text>
-          <Text style={styles.winnerScore}>{winner.score} Peças</Text>
-          {isWinnerMe && (
-            <Text style={styles.youWonTag}>PARABÉNS, É VOCÊ!</Text>
-          )}
-        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
 
-        <Text style={styles.tableTitle}>Placar Geral</Text>
-        <FlatList
-          data={players}
-          keyExtractor={(item) => item.name}
-          contentContainerStyle={{ paddingBottom: 40 }}
-          renderItem={({ item, index }) => (
-            <View
-              style={[
-                styles.resultRow,
-                item.name === userName && styles.resultRowMe,
-              ]}
-            >
-              <Text style={styles.resultRank}>#{index + 1}</Text>
-              <Text
+        {/* --- AQUI: Configuração do título da barra superior --- */}
+        <Stack.Screen options={{ title: 'ごちそうさまでした' }} />
+        {/* ---------------------------------------------------- */}
+
+        <View style={styles.gameOverContainer}>
+          <StatusBar barStyle="light-content" />
+          <View style={styles.gameOverHeader}>
+            <Text style={styles.gameOverTitle}>RESULTADO FINAL</Text>
+            <Text style={styles.gameOverSubtitle}>A batalha acabou! 🏁</Text>
+          </View>
+
+          <View style={styles.winnerCard}>
+            <Text style={styles.trophy}>🏆</Text>
+            <Text style={styles.winnerLabel}>O Grande Campeão</Text>
+            <Text style={styles.winnerName}>{winner.name}</Text>
+            <Text style={styles.winnerScore}>{winner.score} Peças</Text>
+            {isWinnerMe && (
+              <Text style={styles.youWonTag}>PARABÉNS</Text>
+            )}
+          </View>
+
+          <Text style={styles.tableTitle}>Placar Geral</Text>
+          <FlatList
+            data={players}
+            keyExtractor={(item) => item.name}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            renderItem={({ item, index }) => (
+              <View
                 style={[
-                  styles.resultName,
-                  item.name === userName && styles.resultNameMe,
+                  styles.resultRow,
+                  item.name === userName && styles.resultRowMe,
                 ]}
               >
-                {item.name}
-              </Text>
-              <Text style={styles.resultScore}>{item.score}</Text>
-            </View>
-          )}
-        />
+                <Text style={styles.resultRank}>#{index + 1}</Text>
+                <Text
+                  style={[
+                    styles.resultName,
+                    item.name === userName && styles.resultNameMe,
+                  ]}
+                >
+                  {item.name}
+                </Text>
+                <Text style={styles.resultScore}>{item.score}</Text>
+              </View>
+            )}
+          />
 
-        <TouchableOpacity style={styles.homeButton} onPress={handleExit}>
-          <Text style={styles.homeButtonText}>VOLTAR AO INÍCIO</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.homeButton} onPress={handleExit}>
+            <Text style={styles.homeButtonText}>VOLTAR AO INÍCIO</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
   // --- RENDERIZAÇÃO DO JOGO ATIVO ---
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
 
-      <View style={styles.myArea}>
-        <View style={styles.topHeader}>
-          <Text style={styles.headerTitle}>Sua Contagem</Text>
-          <TouchableOpacity
-            onPress={() => {
-              Alert.alert("Sair?", "Vai abandonar a partida?", [
-                { text: "Não", style: "cancel" },
-                { text: "Sair", style: "destructive", onPress: handleExit },
-              ]);
-            }}
-            style={styles.exitButton}
-          >
-            <Text style={styles.exitButtonText}>Sair</Text>
-          </TouchableOpacity>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+
+      {/* --- AQUI: Configuração do título da barra superior --- */}
+      <Stack.Screen options={{ title: 'いただきます' }} />
+      {/* ---------------------------------------------------- */}
+
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+
+        <View style={styles.myArea}>
+          <View style={styles.topHeader}>
+            <Text style={styles.headerTitle}>Sua Contagem</Text>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert("Sair?", "Vai abandonar a partida?", [
+                  { text: "Não", style: "cancel" },
+                  { text: "Sair", style: "destructive", onPress: handleExit },
+                ]);
+              }}
+              style={styles.exitButton}
+            >
+              <Text style={styles.exitButtonText}>Sair</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.bigNumber, isFinished && styles.finishedNumber]}>
+            {myCount}
+          </Text>
+          <Text style={styles.piecesLabel}>peças</Text>
+
+          {!isFinished ? (
+            <View style={styles.controls}>
+              <TouchableOpacity style={styles.btnMinus} onPress={handleRemove}>
+                <Text style={styles.btnTextBlack}>-1</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.btnPlus} onPress={handleAdd}>
+                <Text style={styles.btnTextWhite}>+1 🍣</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.finishedBadge}>
+              <Text style={styles.finishedText}>AGUARDANDO O FIM...</Text>
+            </View>
+          )}
         </View>
 
-        <Text style={[styles.bigNumber, isFinished && styles.finishedNumber]}>
-          {myCount}
-        </Text>
-        <Text style={styles.piecesLabel}>peças</Text>
+        <View style={styles.leaderboardArea}>
+          <Text style={styles.leaderboardTitle}>🏆 Ranking em Tempo Real</Text>
 
-        {!isFinished ? (
-          <View style={styles.controls}>
-            <TouchableOpacity style={styles.btnMinus} onPress={handleRemove}>
-              <Text style={styles.btnTextBlack}>-1</Text>
-            </TouchableOpacity>
+          <FlatList
+            data={players}
+            keyExtractor={(item) => item.name}
+            renderItem={({ item, index }) => {
+              const isMe = item.name === userName;
+              let rankColor = "#FFF";
+              let icon = "👤";
+              if (index === 0) {
+                rankColor = "#FFFDF0";
+                icon = "🥇";
+              }
+              if (index === 1) {
+                rankColor = "#F8F8F8";
+                icon = "🥈";
+              }
+              if (index === 2) {
+                rankColor = "#F8F8F8";
+                icon = "🥉";
+              }
 
-            <TouchableOpacity style={styles.btnPlus} onPress={handleAdd}>
-              <Text style={styles.btnTextWhite}>+1 🍣</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.finishedBadge}>
-            <Text style={styles.finishedText}>AGUARDANDO O FIM...</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.leaderboardArea}>
-        <Text style={styles.leaderboardTitle}>🏆 Ranking em Tempo Real</Text>
-
-        <FlatList
-          data={players}
-          keyExtractor={(item) => item.name}
-          renderItem={({ item, index }) => {
-            const isMe = item.name === userName;
-            let rankColor = "#FFF";
-            let icon = "👤";
-            if (index === 0) {
-              rankColor = "#FFFDF0";
-              icon = "🥇";
-            }
-            if (index === 1) {
-              rankColor = "#F8F8F8";
-              icon = "🥈";
-            }
-            if (index === 2) {
-              rankColor = "#F8F8F8";
-              icon = "🥉";
-            }
-
-            return (
-              <View
-                style={[
-                  styles.playerRow,
-                  { backgroundColor: isMe ? "#FFE0B2" : rankColor },
-                  item.isFinished && { opacity: 0.6 },
-                ]}
-              >
-                <View style={styles.playerInfo}>
-                  <Text style={styles.rankPosition}>{index + 1}º</Text>
-                  <Text style={styles.rankIcon}>{icon}</Text>
-                  <View>
-                    <Text style={styles.rowName}>
-                      {item.name} {isMe ? "(Você)" : ""}
-                    </Text>
-                    {item.isFinished && (
-                      <Text style={styles.statusFinished}>Satisfeito</Text>
-                    )}
+              return (
+                <View
+                  style={[
+                    styles.playerRow,
+                    { backgroundColor: isMe ? "#FFE0B2" : rankColor },
+                    item.isFinished && { opacity: 0.6 },
+                  ]}
+                >
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.rankPosition}>{index + 1}º</Text>
+                    <Text style={styles.rankIcon}>{icon}</Text>
+                    <View>
+                      <Text style={styles.rowName}>
+                        {item.name} {isMe ? "(Você)" : ""}
+                      </Text>
+                      {item.isFinished && (
+                        <Text style={styles.statusFinished}>Satisfeito</Text>
+                      )}
+                    </View>
                   </View>
+                  <Text style={styles.rowScore}>{item.score}</Text>
                 </View>
-                <Text style={styles.rowScore}>{item.score}</Text>
-              </View>
-            );
-          }}
-        />
+              );
+            }}
+          />
 
-        {!isFinished && (
-          <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
-            <Text style={styles.finishButtonText}>Estou Satisfeito ✋</Text>
-          </TouchableOpacity>
-        )}
+          {!isFinished && (
+            <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
+              <Text style={styles.finishButtonText}>Estou Satisfeito ✋</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -593,3 +616,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
+function runTransaction(db: Firestore, arg1: (transaction: any) => Promise<void>) {
+  throw new Error("Function not implemented.");
+}
+

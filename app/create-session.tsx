@@ -1,120 +1,107 @@
-import React, { useState, useEffect } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, Stack } from 'expo-router';
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-} from "react-native";
-import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { db } from "../src/config/firebaseConfig";
-// Adicionamos 'query', 'where', 'getDocs' para verificar duplicidade
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { db } from '../src/config/firebaseConfig';
 
 export default function CreateSessionScreen() {
-  const [name, setName] = useState("");
-  const [sessionPassword, setSessionPassword] = useState("");
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem("@player_name").then((savedName) => {
+    AsyncStorage.getItem('@player_name').then(savedName => {
       if (savedName) setName(savedName);
     });
   }, []);
 
+  const generateRandomCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
   async function handleCreateSession() {
-    if (name.trim() === "") {
-      Alert.alert("Ops!", "Digite seu nome para continuar.");
-      return;
-    }
-    if (sessionPassword.length !== 6) {
-      Alert.alert(
-        "Senha Inválida",
-        "A senha precisa ter exatamente 6 números."
-      );
+    if (name.trim() === '') {
+      Alert.alert('Ops!', 'Digite seu nome para continuar.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const passwordClean = sessionPassword.trim();
-      const sessionsRef = collection(db, "sessions");
+      const sessionsRef = collection(db, 'sessions');
+      let uniqueCode = '';
+      let isUnique = false;
 
-      // 1. VERIFICAÇÃO DE UNICIDADE
-      // Busca todas as salas que têm essa senha
-      const q = query(sessionsRef, where("password", "==", passwordClean));
-      const querySnapshot = await getDocs(q);
+      while (!isUnique) {
+        const potentialCode = generateRandomCode();
+        const q = query(sessionsRef, where('password', '==', potentialCode));
+        const querySnapshot = await getDocs(q);
 
-      // Verifica se alguma delas ainda está ATIVA
-      const activeSessionExists = querySnapshot.docs.some((doc) => {
-        const data = doc.data();
-        return data.status === "waiting" || data.status === "playing";
-      });
+        const activeSessionExists = querySnapshot.docs.some(doc => {
+          const data = doc.data();
+          return data.status === 'waiting' || data.status === 'playing';
+        });
 
-      if (activeSessionExists) {
-        Alert.alert(
-          "Senha em uso",
-          "Já existe uma mesa ativa com essa senha. Por favor, escolha outra combinação."
-        );
-        setLoading(false);
-        return;
+        if (!activeSessionExists) {
+          uniqueCode = potentialCode;
+          isUnique = true; 
+        }
       }
 
-      // 2. Se passou, cria a sala normalmente
-      await AsyncStorage.setItem("@player_name", name);
+      await AsyncStorage.setItem('@player_name', name);
 
-      const sessionRef = await addDoc(collection(db, "sessions"), {
+      const sessionRef = await addDoc(collection(db, 'sessions'), {
         createdAt: serverTimestamp(),
         hostName: name,
-        password: passwordClean,
-        status: "waiting",
-        players: [
-          {
+        password: uniqueCode,
+        status: 'waiting',
+        players: { 
+          [name]: { 
             name: name,
             score: 0,
             isReady: true,
             isHost: true,
-            joinedAt: new Date().toISOString(),
-          },
-        ],
+            isFinished: false, 
+            joinedAt: new Date().toISOString()
+          }
+        } 
       });
 
       router.replace({
-        pathname: "/lobby",
+        pathname: '/lobby',
         params: {
           sessionId: sessionRef.id,
           userName: name,
-          isHost: "true",
-        },
+          isHost: 'true'
+        }
       });
+
     } catch (error) {
       console.error(error);
-      Alert.alert(
-        "Erro",
-        "Não foi possível verificar a disponibilidade da sala."
-      );
+      Alert.alert('Erro', 'Falha ao criar a sala. Verifique sua conexão.');
       setLoading(false);
     }
   }
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      {/* --- AQUI: Configuração do título da barra superior --- */}
+      <Stack.Screen options={{ title: 'Criar Sessão' }} />
+      {/* ---------------------------------------------------- */}
+
       <View style={styles.content}>
         <Text style={styles.title}>Criar Nova Mesa 🍣</Text>
         <Text style={styles.subtitle}>Você será o líder da sessão.</Text>
@@ -129,19 +116,12 @@ export default function CreateSessionScreen() {
             onChangeText={setName}
           />
 
-          <Text style={styles.label}>Crie uma Senha (6 Números)</Text>
-          <TextInput
-            style={[styles.input, styles.codeInput]}
-            placeholder="000000"
-            placeholderTextColor="#999"
-            keyboardType="numeric"
-            maxLength={6}
-            value={sessionPassword}
-            onChangeText={setSessionPassword}
-          />
-          <Text style={styles.helperText}>
-            A senha deve ser única. Se já estiver em uso, avisaremos.
-          </Text>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>Código da Sala</Text>
+            <Text style={styles.infoText}>
+              Será gerado automaticamente um código de 6 dígitos para você compartilhar.
+            </Text>
+          </View>
 
           <TouchableOpacity
             style={styles.button}
@@ -151,7 +131,7 @@ export default function CreateSessionScreen() {
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.buttonText}>CRIAR SALA</Text>
+              <Text style={styles.buttonText}>GERAR SALA E CÓDIGO</Text>
             )}
           </TouchableOpacity>
 
@@ -171,63 +151,67 @@ export default function CreateSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: '#FAFAFA',
   },
   content: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: 'center',
     padding: 24,
   },
   title: {
     fontSize: 32,
-    fontWeight: "bold",
-    color: "#FF4500",
+    fontWeight: 'bold',
+    color: '#FF4500',
     marginBottom: 8,
-    textAlign: "center",
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
-    textAlign: "center",
+    color: '#666',
+    textAlign: 'center',
     marginBottom: 40,
   },
   form: {
-    width: "100%",
+    width: '100%',
   },
   label: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     borderWidth: 1,
-    borderColor: "#DDD",
+    borderColor: '#DDD',
     borderRadius: 12,
     padding: 16,
     fontSize: 18,
     marginBottom: 20,
-    color: "#333",
+    color: '#333',
   },
-  codeInput: {
-    letterSpacing: 8,
-    textAlign: "center",
-    fontWeight: "bold",
-    fontSize: 24,
+  infoBox: {
+    backgroundColor: '#FFF3E0', 
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 25,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
   },
-  helperText: {
+  infoTitle: {
+    fontWeight: 'bold',
+    color: '#E65100',
+    marginBottom: 4,
+  },
+  infoText: {
+    color: '#555',
     fontSize: 14,
-    color: "#888",
-    textAlign: "center",
-    marginTop: -10,
-    marginBottom: 30,
   },
   button: {
-    backgroundColor: "#333",
+    backgroundColor: '#333',
     padding: 20,
     borderRadius: 12,
-    alignItems: "center",
+    alignItems: 'center',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -235,17 +219,17 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   buttonText: {
-    color: "#FFF",
+    color: '#FFF',
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   backButton: {
     padding: 16,
-    alignItems: "center",
+    alignItems: 'center',
     marginTop: 10,
   },
   backButtonText: {
-    color: "#666",
+    color: '#666',
     fontSize: 16,
   },
 });

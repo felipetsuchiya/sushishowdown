@@ -1,15 +1,17 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { db } from "../src/config/firebaseConfig";
 
@@ -24,14 +26,12 @@ export default function LobbyScreen() {
 
     const sessionRef = doc(db, "sessions", sessionId as string);
 
-    // O onSnapshot roda toda vez que algo muda no banco de dados
     const unsubscribe = onSnapshot(sessionRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setSessionData(data);
         setLoading(false);
 
-        // Se o status mudou para 'playing', todos vão para o jogo!
         if (data.status === "playing") {
           router.replace({
             pathname: "/game",
@@ -47,11 +47,9 @@ export default function LobbyScreen() {
       }
     });
 
-    // Limpa a conexão ao sair da tela
     return () => unsubscribe();
   }, [sessionId]);
 
-  // Função para compartilhar a senha
   const shareCode = async () => {
     try {
       await Share.share({
@@ -62,34 +60,30 @@ export default function LobbyScreen() {
     }
   };
 
-  // Função: Jogador marca "Pronto"
+  // Função: Jogador marca "Pronto" (AGORA MUITO MAIS SIMPLES!)
   const toggleReady = async () => {
-    if (!sessionData) return;
+    if (!sessionData || !sessionData.players || !userName) return;
 
-    // Encontra meu índice na lista de jogadores
-    const updatedPlayers = sessionData.players.map((p: any) => {
-      if (p.name === userName) {
-        return { ...p, isReady: !p.isReady }; // Inverte o status
-      }
-      return p;
-    });
+    // Pega o status atual direto do objeto do jogador
+    const currentReadyStatus = sessionData.players[userName as string]?.isReady;
 
+    // Atualiza SÓ o status desse jogador específico lá no Firebase
     await updateDoc(doc(db, "sessions", sessionId as string), {
-      players: updatedPlayers,
+      [`players.${userName}.isReady`]: !currentReadyStatus,
     });
   };
 
   // Função: Líder começa o jogo
   const startGame = async () => {
-    // Verifica se todos estão prontos
-    const allReady = sessionData.players.every((p: any) => p.isReady);
+    // Converte o objeto de jogadores de volta para array para usar o .every()
+    const playersArray = Object.values(sessionData?.players || {});
+    const allReady = playersArray.every((p: any) => p.isReady);
 
     if (!allReady) {
       Alert.alert("Calma!", "Todos os jogadores precisam estar PRONTOS.");
       return;
     }
 
-    // Muda o status no banco -> O useEffect lá em cima vai perceber e navegar todo mundo
     await updateDoc(doc(db, "sessions", sessionId as string), {
       status: "playing",
     });
@@ -104,75 +98,88 @@ export default function LobbyScreen() {
     );
   }
 
+  // Variáveis auxiliares para limpar o visual do nosso JSX (HTML)
+  const playersArray = sessionData?.players ? Object.values(sessionData.players) : [];
+  const isAllReady = playersArray.length > 0 && playersArray.every((p: any) => p.isReady);
+
+  // Pegamos o jogador atual puxando direto da chave do objeto
+  const myPlayer = sessionData?.players?.[userName as string];
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.roomTitle}>Mesa do {sessionData?.hostName}</Text>
-        <TouchableOpacity style={styles.codeContainer} onPress={shareCode}>
-          <Text style={styles.codeLabel}>SENHA DA SALA</Text>
-          <Text style={styles.codeValue}>{sessionData?.password}</Text>
-          <Text style={styles.codeHint}>(Toque para compartilhar)</Text>
-        </TouchableOpacity>
-      </View>
 
-      <Text style={styles.sectionTitle}>
-        Quem vai comer? ({sessionData?.players?.length})
-      </Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
 
-      <FlatList
-        data={sessionData?.players}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => (
-          <View
-            style={[
-              styles.playerCard,
-              item.isReady ? styles.playerReady : styles.playerNotReady,
-            ]}
-          >
-            <View>
-              <Text style={styles.playerName}>
-                {item.name} {item.isHost ? "👑" : ""}{" "}
-                {item.name === userName ? "(Você)" : ""}
-              </Text>
-              <Text style={styles.playerStatusText}>
-                {item.isReady ? "PRONTO PARA COMER" : "ESPERANDO..."}
-              </Text>
+      {/* --- AQUI: Configuração do título da barra superior --- */}
+      <Stack.Screen options={{ title: `Mesa do ${sessionData?.hostName}` }} />
+      {/* ---------------------------------------------------- */}
+
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.roomTitle}>Mesa do {sessionData?.hostName}</Text>
+          <TouchableOpacity style={styles.codeContainer} onPress={shareCode}>
+            <Text style={styles.codeLabel}>SENHA DA SALA</Text>
+            <Text style={styles.codeValue}>{sessionData?.password}</Text>
+            <Text style={styles.codeHint}>(Toque para compartilhar)</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Usamos o playersArray.length em vez de sessionData.players.length */}
+        <Text style={styles.sectionTitle}>
+          Quem vai comer? ({playersArray.length})
+        </Text>
+
+        {/* Passamos o playersArray para a FlatList em vez do Objeto */}
+        <FlatList
+          data={playersArray}
+          keyExtractor={(item: any) => item.name}
+          renderItem={({ item }: any) => (
+            <View
+              style={[
+                styles.playerCard,
+                item.isReady ? styles.playerReady : styles.playerNotReady,
+              ]}
+            >
+              <View>
+                <Text style={styles.playerName}>
+                  {item.name} {item.isHost ? "👑" : ""}{" "}
+                  {item.name === userName ? "(Você)" : ""}
+                </Text>
+                <Text style={styles.playerStatusText}>
+                  {item.isReady ? "PRONTO PARA COMER" : "ESPERANDO..."}
+                </Text>
+              </View>
+              <Text style={styles.statusIcon}>{item.isReady ? "✅" : "⏳"}</Text>
             </View>
-            <Text style={styles.statusIcon}>{item.isReady ? "✅" : "⏳"}</Text>
-          </View>
-        )}
-      />
+          )}
+        />
 
-      <View style={styles.footer}>
-        {/* Se eu sou o Líder (Host) */}
-        {isHost === "true" ? (
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              sessionData?.players.every((p: any) => p.isReady)
-                ? styles.activeButton
-                : styles.disabledButton,
-            ]}
-            onPress={startGame}
-          >
-            <Text style={styles.actionButtonText}>SERVIR A MESA (INICIAR)</Text>
-          </TouchableOpacity>
-        ) : (
-          /* Se eu sou Jogador comum */
-          <TouchableOpacity
-            style={[styles.actionButton, styles.readyButton]}
-            onPress={toggleReady}
-          >
-            <Text style={styles.actionButtonText}>
-              {sessionData?.players.find((p: any) => p.name === userName)
-                ?.isReady
-                ? "NÃO ESTOU PRONTO"
-                : "ESTOU PRONTO!"}
-            </Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.footer}>
+          {isHost === "true" ? (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                isAllReady ? styles.activeButton : styles.disabledButton,
+              ]}
+              onPress={startGame}
+            >
+              <Text style={styles.actionButtonText}>SERVIR A MESA (INICIAR)</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.readyButton]}
+              onPress={toggleReady}
+            >
+              <Text style={styles.actionButtonText}>
+                {myPlayer?.isReady ? "NÃO ESTOU PRONTO" : "ESTOU PRONTO!"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -236,7 +243,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   playerReady: {
-    backgroundColor: "#E8F5E9", // Verde claro
+    backgroundColor: "#E8F5E9",
     borderColor: "#4CAF50",
   },
   playerNotReady: {
