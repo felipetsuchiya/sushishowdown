@@ -13,12 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../src/config/firebaseConfig";
 
 export default function LobbyScreen() {
   const { sessionId, userName, isHost } = useLocalSearchParams();
   const [sessionData, setSessionData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
 
   // 1. Conexão em Tempo Real com a Sala
   useEffect(() => {
@@ -116,7 +118,7 @@ export default function LobbyScreen() {
       <Stack.Screen options={{ title: `Mesa do ${sessionData?.hostName}` }} />
       {/* ---------------------------------------------------- */}
 
-      <View style={styles.container}>
+      <View style={[styles.container, {paddingBottom: insets.bottom + 20}]}>
         <View style={styles.header}>
           <Text style={styles.roomTitle}>Mesa do {sessionData?.hostName}</Text>
           <TouchableOpacity style={styles.codeContainer} onPress={shareCode}>

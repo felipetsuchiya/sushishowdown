@@ -8,16 +8,21 @@ import {
 } from 'react-native';
 // Vamos usar um gradiente laranja no fundo para ficar bonito?
 // Se der erro, instale: npx expo install expo-linear-gradient
+import BannerComponent from '@/src/components/banner';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <LinearGradient
         colors={['#FF4500', '#FF8C00']} // Degradê Laranja
         style={styles.background}
       />
-      
+
       <View style={styles.content}>
         {/* Logo / Splash Art improvisada com Emoji Gigante */}
         <View style={styles.logoContainer}>
@@ -32,8 +37,8 @@ export default function HomeScreen() {
           </Text>
 
           {/* Botão Criar Sessão */}
-          <TouchableOpacity 
-            style={styles.createButton} 
+          <TouchableOpacity
+            style={styles.createButton}
             onPress={() => router.push('/create-session')}
           >
             <Text style={styles.createButtonText}>CRIAR SESSÃO</Text>
@@ -41,8 +46,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           {/* Botão Entrar na Sessão */}
-          <TouchableOpacity 
-            style={styles.joinButton} 
+          <TouchableOpacity
+            style={styles.joinButton}
             onPress={() => router.push('/join-session')}
           >
             <Text style={styles.joinButtonText}>ENTRAR EM SESSÃO</Text>
@@ -50,6 +55,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <BannerComponent />
     </View>
   );
 }
@@ -109,7 +115,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   createButton: {
-    backgroundColor: '#333',
+    backgroundColor: '#FF4500',
     width: '100%',
     padding: 16,
     borderRadius: 12,
@@ -122,16 +128,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   joinButton: {
-    backgroundColor: '#FFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     width: '100%',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#333',
+    borderColor: '#FF4500',
   },
   joinButtonText: {
-    color: '#333',
+    color: '#FF4500',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -145,6 +151,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     opacity: 0.8,
+    color: '#FF4500,'
     // Cor condicional seria ideal, mas aqui vamos simplificar
   }
 });

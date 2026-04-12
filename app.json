@@ -8,6 +8,11 @@
     "scheme": "sushishowdown",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-sushi.png", // <-- Caminho da sua nova imagem
+      "resizeMode": "contain", // <-- "contain" garante que a logo não fique esticada/deformada
+      "backgroundColor": "#FF4500" // <-- A cor de fundo (Hexadecimal) que preenche a tela
+    },
     "ios": {
       "supportsTablet": true
     },

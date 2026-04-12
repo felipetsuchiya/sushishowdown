@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { doc, Firestore, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -15,19 +15,36 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+// 1. Importando o AdMob
+import { TestIds, useInterstitialAd } from "react-native-google-mobile-ads";
 import { db } from "../src/config/firebaseConfig";
 
 const STORAGE_KEY = "@sushi_session_state";
 const { width, height } = Dimensions.get("window");
+
+// 2. Definindo o ID do Anúncio
+const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-xxxxxxxxxxx/yyyyyyyyy';
 
 export default function GameScreen() {
   const { sessionId, userName } = useLocalSearchParams();
   const [myCount, setMyCount] = useState(0);
   const [players, setPlayers] = useState<any[]>([]);
   const [isFinished, setIsFinished] = useState(false);
-  const [gameOver, setGameOver] = useState(false); // Novo estado para saber se acabou
+  const [gameOver, setGameOver] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const playersRef = useRef<any[]>([]);
+
+  // 3. Inicializando o Hook do Anúncio Intersticial
+  const { isLoaded, load, show } = useInterstitialAd(adUnitId, {
+    requestNonPersonalizedAdsOnly: true,
+  });
+
+  // 4. Carrega o anúncio em background assim que o jogador entra na partida
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // 1. Carrega dados locais (Persistência)
   useEffect(() => {
@@ -76,26 +93,17 @@ export default function GameScreen() {
     const unsubscribe = onSnapshot(sessionDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // Pega todos os valores do objeto 'players' e joga num array
         const playersArray = Object.values(data.players || {});
         const sortedPlayers = playersArray.sort((a: any, b: any) => b.score - a.score);
 
         setPlayers(sortedPlayers);
         playersRef.current = sortedPlayers;
 
-        // Verifica quantos jogadores existem
         const totalPlayers = sortedPlayers.length;
-
-        // Conta quantos já terminaram (tratando undefined como false)
         const finishedCount = sortedPlayers.filter((p: any) => p.isFinished === true).length;
 
-
-        // Só acaba se tiver gente na sala E todo mundo estiver marcado como finished
         if (totalPlayers > 0 && finishedCount === totalPlayers) {
           setGameOver(true);
-
-          // Opcional: O último a terminar atualiza o status da sala pra 'finished' no banco
-          // Isso impede novos jogadores de entrar'
           if (data.status !== 'finished') {
             updateDoc(sessionDocRef, { status: 'finished' });
           }
@@ -120,7 +128,6 @@ export default function GameScreen() {
     const sessionRef = doc(db, "sessions", sessionId as string);
 
     try {
-      // Magia pura: Atualiza SÓ os campos do seu jogador, ignorando os outros!
       await updateDoc(sessionRef, {
         [`players.${userName}.score`]: newCount,
         [`players.${userName}.isFinished`]: finished,
@@ -171,6 +178,11 @@ export default function GameScreen() {
                 Haptics.NotificationFeedbackType.Success
               );
             } catch (e) { }
+
+            // 5. Exibe o anúncio de tela cheia caso ele já tenha carregado!
+            if (isLoaded) {
+              show();
+            }
           },
         },
       ]
@@ -193,11 +205,9 @@ export default function GameScreen() {
         style={styles.container}
       >
 
-        {/* --- AQUI: Configuração do título da barra superior --- */}
         <Stack.Screen options={{ title: 'ごちそうさまでした' }} />
-        {/* ---------------------------------------------------- */}
 
-        <View style={styles.gameOverContainer}>
+        <View style={[styles.gameOverContainer, { paddingBottom: insets.bottom + 20 }]}>
           <StatusBar barStyle="light-content" />
           <View style={styles.gameOverHeader}>
             <Text style={styles.gameOverTitle}>RESULTADO FINAL</Text>
@@ -256,11 +266,9 @@ export default function GameScreen() {
       style={styles.container}
     >
 
-      {/* --- AQUI: Configuração do título da barra superior --- */}
       <Stack.Screen options={{ title: 'いただきます' }} />
-      {/* ---------------------------------------------------- */}
 
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingBottom: insets.bottom + 20 }]}>
         <StatusBar barStyle="dark-content" />
 
         <View style={styles.myArea}>
@@ -369,7 +377,7 @@ const styles = StyleSheet.create({
   // --- ESTILOS DO GAME OVER ---
   gameOverContainer: {
     flex: 1,
-    backgroundColor: "#1a1a1a", // Fundo escuro dramático
+    backgroundColor: "#1a1a1a",
     padding: 24,
     justifyContent: "center",
   },
@@ -391,7 +399,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   winnerCard: {
-    backgroundColor: "#FFD700", // Dourado
+    backgroundColor: "#FFD700",
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
@@ -466,7 +474,7 @@ const styles = StyleSheet.create({
   },
   homeButtonText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
 
-  // --- ESTILOS DO JOGO ATIVO (Mantidos iguais) ---
+  // --- ESTILOS DO JOGO ATIVO ---
   myArea: {
     height: height * 0.48,
     backgroundColor: "#FAFAFA",
@@ -616,7 +624,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-function runTransaction(db: Firestore, arg1: (transaction: any) => Promise<void>) {
-  throw new Error("Function not implemented.");
-}
-

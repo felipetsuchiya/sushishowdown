@@ -206,13 +206,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#333",
+    color: "#FF4500",
     marginBottom: 8,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
+    color: "#FFF(253, 253, 253)",
     textAlign: "center",
     marginBottom: 40,
   },
