@@ -24,7 +24,7 @@ const STORAGE_KEY = "@sushi_session_state";
 const { width, height } = Dimensions.get("window");
 
 // 2. Definindo o ID do Anúncio
-const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-xxxxxxxxxxx/yyyyyyyyy';
+const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-3628106619505041/9454673055';
 
 export default function GameScreen() {
   const { sessionId, userName } = useLocalSearchParams();
