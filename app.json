@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "sushi-showdown",
+    "name": "Sushi Showdown",
     "slug": "sushi-showdown",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-sushi.png", // <-- Caminho da sua nova imagem
+      "image": "./assets/images/splash-icon.png", // <-- Caminho da sua nova imagem
       "resizeMode": "contain", // <-- "contain" garante que a logo não fique esticada/deformada
       "backgroundColor": "#FF4500" // <-- A cor de fundo (Hexadecimal) que preenche a tela
     },
@@ -25,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.sushidevbr.sushishowdown"
+      "package": "com.tsuchiyadev.sushishowdown"
     },
     "web": {
       "output": "static",

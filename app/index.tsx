@@ -1,15 +1,81 @@
+import BannerComponent from '@/src/components/banner';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
 import {
+  Image // <-- 1. Importamos o componente Image
+  ,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-// Vamos usar um gradiente laranja no fundo para ficar bonito?
-// Se der erro, instale: npx expo install expo-linear-gradient
-import BannerComponent from '@/src/components/banner';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -19,14 +85,21 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <LinearGradient
-        colors={['#FF4500', '#FF8C00']} // Degradê Laranja
+        colors={['#FF4500', '#FF8C00']}
         style={styles.background}
       />
 
       <View style={styles.content}>
-        {/* Logo / Splash Art improvisada com Emoji Gigante */}
+
+        {/* Logo Oficial */}
         <View style={styles.logoContainer}>
-          <Text style={styles.emoji}>🍣</Text>
+          <Image
+            // 2. Coloque o caminho correto de onde o icon.jpg está salvo no seu projeto
+            source={require('../assets/images/icon-homepage.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          {/* Opcional: Mantive o título, mas se o ícone já disser tudo, você pode apagar esses Textos */}
           <Text style={styles.title}>SUSHI</Text>
           <Text style={styles.subtitle}>SHOWDOWN</Text>
         </View>
@@ -78,27 +151,28 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 60,
+    marginBottom: 20, // Diminuí um pouco a margem para caber melhor a imagem
   },
-  emoji: {
-    fontSize: 100,
-    marginBottom: 10,
+  // 3. Adicionamos o estilo para a nova imagem
+  logo: {
+    width: 180,
+    height: 180,
   },
   title: {
     fontSize: 48,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: 2,
-    fontStyle: 'italic', // Dá um ar de "Speed/Corrida"
+    fontStyle: 'italic',
   },
   subtitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#FFE4B5', // Um bege claro
+    color: '#FFE4B5',
     letterSpacing: 5,
   },
   menuContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Fundo branco meio transparente
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -151,7 +225,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     opacity: 0.8,
-    color: '#FF4500,'
-    // Cor condicional seria ideal, mas aqui vamos simplificar
+    color: '#FF4500'
   }
 });

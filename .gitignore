@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Build artifacts
+*.apk
+*.aab
+*.dm
+android/app/build/
+android/app/release/
+output-metadata.json
